@@ -4,7 +4,7 @@
 
 // Update local stats from the latest frame header (latency, drops, mirrored
 // camera telemetry). Call once per drawn frame.
-struct FrameHeader;
+#include "protocol.h"
 void overlay_ingest(const FrameHeader* h, uint32_t now_ms);
 
 // Draw the overlay. Internally throttled to OVERLAY_REFRESH_HZ and uses dirty
