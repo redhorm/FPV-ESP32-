@@ -25,9 +25,29 @@
 // ---------------------------------------------------------------------------
 //  Network ports
 // ---------------------------------------------------------------------------
-#define VIDEO_TCP_PORT      81     // dedicated low-latency JPEG stream
+#define VIDEO_TCP_PORT      81     // raw-TCP JPEG stream (used when VIDEO_USE_UDP=0)
+#define VIDEO_UDP_PORT      81     // UDP chunked video  (used when VIDEO_USE_UDP=1)
 #define CMD_UDP_PORT        82     // receiver -> camera commands, status reply
 #define HTTP_DEBUG_PORT     80     // optional /status and /snapshot (debug only)
+
+// ---------------------------------------------------------------------------
+//  Video transport  -  see protocol.h for the full rationale
+// ---------------------------------------------------------------------------
+//  1 = UDP chunked stream (DEFAULT, recommended): no head-of-line blocking, no
+//      retransmit stalls -> higher FPS and lower, more consistent latency. This
+//      is the path that targets ~15-18 fps.
+//  0 = original raw-TCP stream (fallback for very clean links / debugging).
+#define VIDEO_USE_UDP       1
+// JPEG bytes per UDP datagram. Keep below the Wi-Fi MTU payload (~1472) so the
+// IP layer never fragments a datagram (fragmentation hurts loss resilience).
+#define UDP_CHUNK_PAYLOAD   1400
+// Optional pacing between chunks (microseconds). 0 = blast as fast as possible
+// (lowest latency). If you observe heavy per-frame loss on a busy channel, a
+// small value (e.g. 50-150) lets the Wi-Fi TX buffer drain between datagrams.
+#define UDP_CHUNK_GAP_US    0
+// Stop transmitting if the receiver has not (re)subscribed within this long.
+// Saves air time when no monitor is listening. Milliseconds.
+#define VIDEO_SUB_TIMEOUT_MS 2500
 
 // ---------------------------------------------------------------------------
 //  Camera / video

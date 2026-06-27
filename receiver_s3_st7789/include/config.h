@@ -12,8 +12,24 @@
 #define WIFI_SSID           "RC-FPV-CAM"
 #define WIFI_PASSWORD       "12345678"
 #define CAMERA_IP           "192.168.4.1"   // fixed AP IP of the camera
-#define VIDEO_TCP_PORT      81
+#define VIDEO_TCP_PORT      81              // raw-TCP video  (when VIDEO_USE_UDP=0)
+#define VIDEO_UDP_PORT      81              // UDP chunked video (when VIDEO_USE_UDP=1)
 #define CMD_UDP_PORT        82
+
+// ---------------------------------------------------------------------------
+//  Video transport  -  MUST match the camera's config.h
+// ---------------------------------------------------------------------------
+//  1 = UDP chunked stream (DEFAULT): reassemble chunks, always render the
+//      freshest complete frame, drop partial/late frames -> low latency.
+//  0 = original raw-TCP stream (fallback).
+#define VIDEO_USE_UDP       1
+// MUST equal the camera's UDP_CHUNK_PAYLOAD (used for reassembly offsets).
+#define UDP_CHUNK_PAYLOAD   1400
+// How often the receiver re-subscribes so the camera keeps unicasting to it.
+#define VIDEO_SUB_INTERVAL_MS 500
+// Abandon (count as dropped) a partially-received frame older than this, so a
+// lost chunk can never wedge the reassembler. Milliseconds.
+#define FRAME_ASSEMBLY_TMO  120
 
 // ---------------------------------------------------------------------------
 //  Display

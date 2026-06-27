@@ -23,9 +23,10 @@ respective `config.h` (0=silent…3=verbose).
 | Screen flashes random pixels at power-on | Should not happen: we paint black *before* enabling backlight. If it does, check TFT_BL on GPIO21. |
 | Backlight on but black | Lower `DISPLAY_SPI_HZ` to 27 MHz (long/dirty wiring). Check MOSI/SCLK. |
 | Stuck on “WI-FI LOST” | SSID/password mismatch with the camera AP (`WIFI_SSID`/`WIFI_PASSWORD`). Camera not powered. |
-| “STREAM LOST” loop | Camera AP is up but the TCP server isn’t reachable. Confirm `CAMERA_IP` (192.168.4.1) and `VIDEO_TCP_PORT` (81). |
+| “STREAM LOST” loop | Camera AP is up but no video arrives. Confirm `CAMERA_IP` (192.168.4.1) and that `VIDEO_USE_UDP`, `VIDEO_UDP_PORT` (81) **and `UDP_CHUNK_PAYLOAD`** match on both firmwares. The receiver auto-sends `VSUB` every `VIDEO_SUB_INTERVAL_MS`. |
 | Choppy / high latency | Weak signal (watch the signal bars). Increase `CAM_JPEG_QUALITY` value, keep antennas clear, reduce distance. |
-| Many dropped frames | Normal under poor RSSI — the receiver drops stale frames on purpose to keep latency low. Improve the link. |
+| Many dropped frames | Under poor RSSI a lost UDP chunk drops the whole frame, so FPS falls but latency stays low. Raise `CAM_JPEG_QUALITY` (fewer chunks), set `UDP_CHUNK_GAP_US` to 50–150 on a busy channel, or use the TCP fallback (`VIDEO_USE_UDP 0`) on a clean link. |
+| `VIDEO_USE_UDP` mismatch | This flag **must be identical** on camera and receiver. Rebuild/flash both after changing it. |
 | Overlay missing, log says “sprite alloc failed” | Very low RAM / no PSRAM. Overlay self-disables to avoid a crash; video still works. Enable PSRAM (see `platformio.ini`). |
 | RGB LED does nothing / errors | Your board has no WS2812 on GPIO48. Set `ENABLE_RGB_STATUS_LED 0`. |
 | Buttons unresponsive | GPIO0 is also the strapping pin; ensure nothing else drives it. Adjust `BTN_*` thresholds if needed. |

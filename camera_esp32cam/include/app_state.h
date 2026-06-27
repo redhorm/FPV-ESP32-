@@ -9,6 +9,7 @@
 // =============================================================================
 #pragma once
 #include <stdint.h>
+#include "protocol.h"   // FPV_ERR_* / FPV_FLAG_* bits used in error_flags below
 
 enum class CamState : uint8_t {
   BOOT,
