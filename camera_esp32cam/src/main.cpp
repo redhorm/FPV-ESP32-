@@ -96,6 +96,8 @@ void loop() {
   }
 
   g_status.frame_id++;
+  g_status.frame_capture_ms = millis();   // capture instant (TSYNC clock domain)
+  g_status.last_jpeg_len    = fb->len;
   telemetry_on_frame();
 
   // Prioritise streaming. Send first, then persist to SD (recorder self-skips

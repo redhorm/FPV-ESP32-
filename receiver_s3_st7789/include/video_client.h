@@ -16,6 +16,10 @@ const uint8_t* video_frame_data();
 uint32_t       video_frame_len();
 const FrameHeader* video_frame_header();
 
+// Camera capture timestamp (ms, camera clock) of the current frame. Used with
+// the TSYNC clock offset to compute an honest frame_age after the draw.
+uint32_t       video_frame_capture_ms();
+
 bool video_is_connected();
 
 // Force a reconnect (used by the "Reconnect Stream" menu action).

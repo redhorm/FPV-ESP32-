@@ -125,21 +125,23 @@ bool stream_send_frame(camera_fb_t* fb) {
 
   // 2) JPEG chunks.
   const uint32_t len   = fb->len;
-  uint16_t       count = (uint16_t)((len + UDP_CHUNK_PAYLOAD - 1) / UDP_CHUNK_PAYLOAD);
+  const uint32_t cap   = g_status.frame_capture_ms;     // same clock as TSYNC
+  uint16_t       count = (uint16_t)((len + UDP_PAYLOAD_SIZE - 1) / UDP_PAYLOAD_SIZE);
   if (count == 0) count = 1;
 
   for (uint16_t i = 0; i < count; i++) {
-    uint32_t off  = (uint32_t)i * UDP_CHUNK_PAYLOAD;
-    uint16_t clen = (uint16_t)((len - off) > UDP_CHUNK_PAYLOAD
-                               ? UDP_CHUNK_PAYLOAD : (len - off));
+    uint32_t off  = (uint32_t)i * UDP_PAYLOAD_SIZE;
+    uint16_t clen = (uint16_t)((len - off) > UDP_PAYLOAD_SIZE
+                               ? UDP_PAYLOAD_SIZE : (len - off));
     ChunkHeader ch;
     ch.magic       = FPV_UDP_CHUNK_MAGIC;
     ch.version     = FPV_PROTOCOL_VERSION;
-    ch.frame_id    = (uint16_t)g_status.frame_id;   // wraps; receiver uses int16 diff
+    ch.frame_id    = g_status.frame_id;            // 32-bit; receiver uses int32 diff
     ch.chunk_id    = i;
     ch.chunk_count = count;
     ch.chunk_len   = clen;
     ch.frame_len   = len;
+    ch.capture_ms  = cap;
 
     s_vudp.beginPacket(s_sub_ip, s_sub_port);
     s_vudp.write((const uint8_t*)&ch, sizeof(ch));

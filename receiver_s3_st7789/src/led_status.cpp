@@ -1,9 +1,9 @@
 // =============================================================================
 //  led_status.cpp  -  onboard WS2812 RGB status indicator (GPIO48)
 // -----------------------------------------------------------------------------
-//  Uses the ESP32 Arduino core's built-in rgbLedWrite() (RMT driver) so we add
-//  no external library. Colour reflects the receiver state; REC pulses in an
-//  elegant magenta. Compiles to no-ops when ENABLE_RGB_STATUS_LED == 0, so the
+//  Uses the ESP32 Arduino core's built-in neopixelWrite() (RMT driver) so we
+//  add no external library. Colour reflects the receiver state; REC pulses in an
+//  elegant magenta. Compiles to no-ops when ENABLE_RGB_LED == 0, so the
 //  firmware runs unchanged on boards without the LED.
 //    blue   = connecting / connected (no stream yet)
 //    green  = stream live
@@ -17,12 +17,14 @@
 #include "app_state.h"
 #include <Arduino.h>
 
-#if ENABLE_RGB_STATUS_LED
+#if ENABLE_RGB_LED
 
-static inline uint8_t scale(uint8_t v) { return (uint16_t)v * RGB_BRIGHTNESS / 255; }
+static inline uint8_t scale(uint8_t v) { return (uint16_t)v * FPV_RGB_LEVEL / 255; }
 
 static void setColor(uint8_t r, uint8_t g, uint8_t b) {
-  rgbLedWrite(PIN_RGB_LED, scale(r), scale(g), scale(b));
+  // neopixelWrite() is the portable arduino-esp32 WS2812 helper (works across
+  // core versions where rgbLedWrite() may be absent/renamed).
+  neopixelWrite(PIN_RGB_LED, scale(r), scale(g), scale(b));
 }
 
 void led_begin() {
@@ -54,7 +56,7 @@ void led_loop() {
   }
 }
 
-#else  // ENABLE_RGB_STATUS_LED == 0
+#else  // ENABLE_RGB_LED == 0
 
 void led_begin() {}
 void led_loop()  {}

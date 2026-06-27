@@ -1,5 +1,6 @@
 // button_handler.h - debounced BOOT button -> short/long/very-long events
 #pragma once
+#include <stdint.h>
 
 enum class ButtonEvent : uint8_t {
   NONE,

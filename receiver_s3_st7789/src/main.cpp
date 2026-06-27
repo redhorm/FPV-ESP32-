@@ -59,7 +59,7 @@ void setup() {
   button_begin();
 
   g_rx.state = RxState::BOOT;
-  menu_boot_screen(3000);     // animated neon-skull splash
+  menu_boot_screen(SPLASH_MS);   // animated neon-skull splash (short in TURBO)
 
   wifi_begin();
   video_begin();
@@ -113,9 +113,33 @@ void loop() {
       if (new_frame) {
         const uint8_t* d = video_frame_data();
         uint32_t       n = video_frame_len();
-        if (jpeg_draw(d, n)) {
+
+        uint32_t t0 = micros();
+        bool ok = jpeg_draw(d, n);          // LovyanGFX decodes + DMA-blits in one
+        uint32_t dt = micros() - t0;
+
+        if (ok) {
+          g_rx.decode_draw_us = dt;
           overlay_ingest(video_frame_header(), now);
+
+          // Honest frame age: capture instant (camera clock) -> now, where
+          // now is mapped into the camera clock via the TSYNC offset.
+          uint32_t cap     = video_frame_capture_ms();
+          uint32_t cam_now = (uint32_t)((int32_t)millis() + g_rx.clock_offset);
+          int32_t  age     = (int32_t)(cam_now - cap);
+          g_rx.frame_age_ms = (age > 0 && age < 60000) ? (uint32_t)age : 0;
+          g_rx.latency_ms   = g_rx.frame_age_ms;
+
+          // drawn-FPS over a real 1 s window
+          static uint32_t draw_win = 0, draw_cnt = 0;
+          if (draw_win == 0) draw_win = now;
+          draw_cnt++;
+          uint32_t wd = now - draw_win;
+          if (wd >= 1000) { g_rx.fps_video = draw_cnt * 1000.0f / (float)wd;
+                            draw_win = now; draw_cnt = 0; }
+          g_rx.frames_drawn++;
         } else {
+          g_rx.jpeg_err++; g_rx.frames_dropped++;
           g_rx.error = RxError::JPEG_DECODE;   // transient; we stay LIVE
         }
       }

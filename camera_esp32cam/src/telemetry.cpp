@@ -7,21 +7,22 @@
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 
-// --- FPS estimator: exponential moving average over inter-frame periods ------
-static uint32_t s_last_frame_ms = 0;
-static float    s_fps_ema       = 0.0f;
+// --- FPS estimator: real frame count over a fixed time window ----------------
+// Counting frames in a wall-clock window is the honest measure the brief asks
+// for (vs an EMA of inter-frame gaps, which lags and smooths over stalls).
+static uint32_t s_win_start = 0;
+static uint32_t s_win_count = 0;
 
 void telemetry_on_frame() {
   uint32_t now = millis();
-  if (s_last_frame_ms != 0) {
-    uint32_t dt = now - s_last_frame_ms;
-    if (dt > 0) {
-      float inst = 1000.0f / (float)dt;
-      s_fps_ema = (s_fps_ema == 0.0f) ? inst : (s_fps_ema * 0.9f + inst * 0.1f);
-      g_status.fps_camera = s_fps_ema;
-    }
+  if (s_win_start == 0) s_win_start = now;
+  s_win_count++;
+  uint32_t dt = now - s_win_start;
+  if (dt >= FPS_WINDOW_MS) {
+    g_status.fps_camera = (s_win_count * 1000.0f) / (float)dt;
+    s_win_start = now;
+    s_win_count = 0;
   }
-  s_last_frame_ms = now;
 }
 
 // --- Periodic system sampling ------------------------------------------------
@@ -49,7 +50,8 @@ void telemetry_fill_header(FrameHeader* h, uint32_t jpeg_len) {
   h->version     = FPV_PROTOCOL_VERSION;
   h->header_size = sizeof(FrameHeader);
   h->frame_id    = g_status.frame_id;
-  h->timestamp_ms= millis();
+  // Capture instant (not send instant) so the receiver's frame_age is honest.
+  h->timestamp_ms= g_status.frame_capture_ms;
   h->jpeg_length = jpeg_len;
 
   uint8_t flags = 0;

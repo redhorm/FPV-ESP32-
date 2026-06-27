@@ -1,26 +1,30 @@
 // =============================================================================
-//  protocol.h  -  RC_FPV_SCALER_PRO shared wire protocol
+//  protocol.h  -  RC_FPV_SCALER_PRO shared wire protocol  (v2, anti-lag)
 // -----------------------------------------------------------------------------
-//  This header is INTENTIONALLY identical between the camera firmware and the
-//  receiver firmware. Keep both copies byte-for-byte in sync. It defines:
+//  INTENTIONALLY identical between the camera and receiver firmwares. Keep both
+//  copies byte-for-byte in sync. It defines:
 //
-//    1) The per-frame telemetry header (FrameHeader)
-//    2) The UDP video chunk header (ChunkHeader) - low-latency transport
-//    3) The UDP command tokens (receiver -> camera)
+//    1) The per-frame telemetry header (FrameHeader, 30 B)
+//    2) The UDP video chunk header (ChunkHeader, 20 B) - low-latency transport
+//    3) The UDP command tokens (receiver -> camera), incl. TSYNC clock sync
 //    4) The UDP status reply format (camera -> receiver)
 //
-//  TRANSPORT (selectable in config.h via VIDEO_USE_UDP):
-//    * VIDEO_USE_UDP = 1 (default, recommended): video travels as UDP datagrams.
-//      Each JPEG frame is split into chunks (ChunkHeader + payload) and blasted
-//      unicast to the subscribed receiver. A small telemetry datagram (the
-//      FrameHeader below) is sent once per frame just before its chunks. UDP has
-//      no head-of-line blocking and no retransmit stalls, so a lost packet costs
-//      at most one frame instead of freezing the stream -> higher FPS / lower,
-//      more consistent latency on real Wi-Fi links (this is what the reference
-//      rc-fpv-esp32 design uses to reach ~18 fps).
-//    * VIDEO_USE_UDP = 0 (fallback): the original raw-TCP stream, where each
-//      frame is [FrameHeader][JPEG] over a single TCP socket. Kept as a robust
-//      fallback for very clean links or debugging.
+//  PROTOCOL v2 changes (vs v1), all aimed at lower, measurable latency:
+//    * frame_id widened 16 -> 32 bit (no ambiguity over long sessions).
+//    * Each chunk carries the frame's capture timestamp (capture_ms), so the
+//      receiver can compute a real frame_age_ms even if the telemetry datagram
+//      is lost. ChunkHeader grew 14 -> 20 bytes.
+//    * UDP payload trimmed 1400 -> 1200 B (UDP_PAYLOAD_SIZE) for a safer MTU
+//      margin and finer-grained loss (a lost packet kills less of a frame).
+//    * TSYNC command added: receiver <-> camera millis() exchange to estimate
+//      the clock offset (best/lowest-RTT sample wins) -> honest frame_age_ms.
+//
+//  TRANSPORT (config.h :: VIDEO_USE_UDP):
+//    * 1 (default): UDP chunked. Per frame the camera sends one telemetry
+//      datagram (FrameHeader) then N chunk datagrams ([ChunkHeader][payload]).
+//      No retransmits, no head-of-line blocking: a lost packet costs one frame,
+//      never a stall. Newer frame_id always wins (freshest-frame).
+//    * 0: raw-TCP [FrameHeader][JPEG] fallback for very clean links / debug.
 //
 //  Both targets are little-endian, so we transmit the packed structs as-is.
 // =============================================================================
@@ -28,7 +32,7 @@
 #include <stdint.h>
 
 // ---- Versioning -------------------------------------------------------------
-#define FPV_PROTOCOL_VERSION   1
+#define FPV_PROTOCOL_VERSION   2          // bumped for the v2 wire format
 
 // 4-byte magic for the telemetry/TCP FrameHeader: 'R','F','P','V'.
 #define FPV_MAGIC_0  0x52
@@ -57,8 +61,6 @@
 //  Per-frame telemetry header.
 //  * UDP mode: sent as a standalone datagram once per frame (no JPEG payload).
 //  * TCP mode: immediately followed by `jpeg_length` JPEG bytes.
-//  Telemetry is piggybacked so the overlay always has fresh data without an
-//  extra round-trip. Layout is fixed and packed.
 // -----------------------------------------------------------------------------
 #pragma pack(push, 1)
 typedef struct {
@@ -66,7 +68,7 @@ typedef struct {
   uint8_t  version;       // FPV_PROTOCOL_VERSION
   uint8_t  flags;         // FPV_FLAG_*
   uint16_t header_size;   // sizeof(FrameHeader) - lets receiver skip unknowns
-  uint32_t frame_id;      // monotonic, wraps naturally
+  uint32_t frame_id;      // monotonic, 32-bit
   uint32_t timestamp_ms;  // camera millis() when frame was captured
   uint32_t jpeg_length;   // bytes of JPEG payload for this frame
 
@@ -81,28 +83,30 @@ typedef struct {
 } FrameHeader;
 
 // -----------------------------------------------------------------------------
-//  UDP video chunk header. Sent as [ChunkHeader][chunk_len JPEG bytes]. A frame
-//  of `frame_len` bytes is split into `chunk_count` chunks of UDP_CHUNK_PAYLOAD
-//  bytes each (the last one is shorter). The receiver scatters each chunk into a
-//  reassembly buffer at offset (chunk_id * UDP_CHUNK_PAYLOAD) and renders the
-//  frame once all chunks have arrived. A newer frame_id always wins (freshest
-//  frame), so a lost chunk costs exactly one frame, never a stall.
+//  UDP video chunk header (v2). Sent as [ChunkHeader][chunk_len JPEG bytes].
+//  A frame of `frame_len` bytes is split into `chunk_count` chunks of
+//  UDP_PAYLOAD_SIZE bytes each (the last one is shorter). The receiver scatters
+//  each chunk to offset (chunk_id * UDP_PAYLOAD_SIZE), renders when all chunks
+//  arrive, and a newer frame_id always wins. `capture_ms` is the camera millis()
+//  at capture, replicated in every chunk so frame_age survives a lost telemetry
+//  datagram.
 // -----------------------------------------------------------------------------
 typedef struct {
   uint8_t  magic;         // FPV_UDP_CHUNK_MAGIC
   uint8_t  version;       // FPV_PROTOCOL_VERSION
-  uint16_t frame_id;      // wraps; "newer" decided by (int16_t) difference
+  uint32_t frame_id;      // 32-bit; "newer" decided by (int32_t) difference
   uint16_t chunk_id;      // 0 .. chunk_count-1
   uint16_t chunk_count;   // total chunks composing this frame
   uint16_t chunk_len;     // JPEG payload bytes carried by THIS datagram
   uint32_t frame_len;     // total JPEG length of the whole frame
+  uint32_t capture_ms;    // camera millis() at frame capture
 } ChunkHeader;
 #pragma pack(pop)
 
 // Compile-time guards: sizes must stay fixed. If you change a struct, update the
 // number on BOTH firmwares so a mismatch is caught at build time.
 #define FPV_FRAME_HEADER_SIZE 30
-#define FPV_CHUNK_HEADER_SIZE 14
+#define FPV_CHUNK_HEADER_SIZE 20
 #ifdef __cplusplus
 static_assert(sizeof(FrameHeader) == FPV_FRAME_HEADER_SIZE,
               "FrameHeader size changed - keep both firmwares in sync");
@@ -113,15 +117,13 @@ static_assert(sizeof(ChunkHeader) == FPV_CHUNK_HEADER_SIZE,
 // -----------------------------------------------------------------------------
 //  UDP video subscription token (receiver -> camera, on the video UDP port).
 //  The receiver sends this periodically; the camera records the sender's
-//  IP:port and unicasts the video chunks back to it. If no subscription arrives
+//  IP:port and unicasts video chunks back to it. If no subscription arrives
 //  within VIDEO_SUB_TIMEOUT_MS the camera stops transmitting (saves air time).
 // -----------------------------------------------------------------------------
 #define FPV_VIDEO_SUBSCRIBE  "VSUB"
 
 // -----------------------------------------------------------------------------
-//  UDP command tokens (receiver -> camera, UDP CMD_UDP_PORT).
-//  Plain ASCII tokens terminated by '\n'. Text keeps the protocol trivially
-//  debuggable with `nc`/`socat` and adds negligible overhead for control msgs.
+//  UDP command tokens (receiver -> camera, UDP CMD_UDP_PORT). ASCII, '\n'-ended.
 //  Optional argument commands use "TOKEN=value".
 // -----------------------------------------------------------------------------
 #define CMD_REC_TOGGLE       "REC_TOGGLE"
@@ -132,13 +134,15 @@ static_assert(sizeof(ChunkHeader) == FPV_CHUNK_HEADER_SIZE,
 #define CMD_REQUEST_STATUS   "REQUEST_STATUS"
 #define CMD_SET_QUALITY      "SET_QUALITY"      // "SET_QUALITY=10" (4..63)
 #define CMD_SET_OVERLAY_MODE "SET_OVERLAY_MODE" // "SET_OVERLAY_MODE=2"
+#define CMD_TSYNC            "TSYNC"            // clock-sync probe -> "TS=<ms>"
 
 // -----------------------------------------------------------------------------
-//  UDP status reply (camera -> receiver). Single line, key=value, '\n' ended.
-//  Example: STATUS rec=0 sd=1 led=0 mpu=0 fps=12.0 fid=1234 q=12 roll=0.0
-//           pitch=0.0 heap=180 up=42 psram=4096 err=0
-//  The receiver parses tokens it recognises and ignores the rest (forward
-//  compatible). "PONG" is returned for CMD_PING.
+//  UDP replies (camera -> receiver). Single line, '\n'-ended.
+//    STATUS: "STATUS rec=.. sd=.. led=.. mpu=.. fps=.. fid=.. q=.. roll=..
+//             pitch=.. heap=.. psram=.. up=.. err=.."
+//    PING  : "PONG"
+//    TSYNC : "TS=<camera_millis>"
 // -----------------------------------------------------------------------------
 #define STATUS_REPLY_PREFIX  "STATUS"
 #define PING_REPLY           "PONG"
+#define TSYNC_REPLY_PREFIX   "TS="

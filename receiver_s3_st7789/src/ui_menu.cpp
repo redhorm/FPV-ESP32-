@@ -27,30 +27,41 @@
 //  scaled/centred at runtime. Each entry is an edge {x1,y1,x2,y2}. The set is
 //  intentionally faceted to read as "low-poly" like the artwork.
 // ---------------------------------------------------------------------------
+//  Re-traced from the @luca3d_designs artwork: a symmetric low-poly skull with
+//  a triangulated cranium fan, two large angular eye sockets, a triangular
+//  nasal cavity, a teeth grid and a tapering jaw. Vectors (not a bitmap) so it
+//  stays crisp at any scale and costs no flash.
 static const uint8_t SKULL[][4] = {
-  // cranium + face outline (closed loop)
-  {50,2, 70,6},  {70,6, 86,20},  {86,20, 93,42}, {93,42, 89,60},
-  {89,60, 80,72}, {80,72, 71,86}, {71,86, 50,95}, {50,95, 29,86},
-  {29,86, 20,72}, {20,72, 11,60}, {11,60, 7,42},  {7,42, 14,20},
-  {14,20, 30,6},  {30,6, 50,2},
-  // faceting from brow
-  {30,6, 50,30}, {70,6, 50,30}, {14,20, 30,40}, {86,20, 70,40},
-  {7,42, 26,52}, {93,42, 74,52},
-  // left eye socket
-  {26,40, 44,38}, {44,38, 46,54}, {46,54, 28,56}, {28,56, 26,40},
-  {26,40, 46,54}, // diagonal facet
-  // right eye socket
-  {56,38, 74,40}, {74,40, 72,56}, {72,56, 54,54}, {54,54, 56,38},
-  {56,38, 72,56}, // diagonal facet
-  // nose
-  {50,52, 44,68}, {50,52, 56,68}, {44,68, 56,68}, {50,58, 50,52},
-  // cheeks to jaw facets
-  {28,56, 35,74}, {72,56, 65,74}, {35,74, 50,72}, {65,74, 50,72},
-  {50,72, 50,82},
-  // teeth block
-  {36,76, 64,76}, {36,84, 64,84}, {36,76, 36,84}, {64,76, 64,84},
-  {43,76, 43,84}, {50,76, 50,84}, {57,76, 57,84},
-  {40,84, 42,90}, {60,84, 58,90}, {50,84, 50,92},
+  // --- outline: cranium -> temple -> cheek -> jaw -> chin (right side) ---
+  {50,3, 62,4},  {62,4, 74,9},  {74,9, 84,18}, {84,18, 90,30}, {90,30, 92,43},
+  {92,43, 89,54},{89,54, 84,62},{84,62, 80,69},{80,69, 72,82}, {72,82, 60,91},
+  {60,91, 50,95},
+  // --- outline: left side (mirror) ---
+  {50,3, 38,4},  {38,4, 26,9},  {26,9, 16,18}, {16,18, 10,30}, {10,30, 8,43},
+  {8,43, 11,54}, {11,54, 16,62},{16,62, 20,69},{20,69, 28,82}, {28,82, 40,91},
+  {40,91, 50,95},
+  // --- forehead radial fan from the brow centre (50,40) ---
+  {50,40, 50,6}, {50,40, 72,10},{50,40, 86,22},{50,40, 90,34},
+  {50,40, 28,10},{50,40, 14,22},{50,40, 10,34},
+  {12,40, 50,40},{50,40, 88,40},                 // brow ridge
+  // --- right eye socket (angular hexagon) ---
+  {56,44, 66,42},{66,42, 75,46},{75,46, 74,54},{74,54, 64,57},{64,57, 55,52},
+  {55,52, 56,44},{56,44, 74,54},                 // internal facet
+  // --- left eye socket (mirror) ---
+  {44,44, 34,42},{34,42, 25,46},{25,46, 26,54},{26,54, 36,57},{36,57, 45,52},
+  {45,52, 44,44},{44,44, 26,54},                 // internal facet
+  // --- nose (inverted triangle + bridge) ---
+  {50,50, 50,58},{50,58, 44,72},{50,58, 56,72},{44,72, 50,76},{56,72, 50,76},
+  {47,66, 50,58},{53,66, 50,58},
+  // --- cheek / jaw facets ---
+  {74,54, 89,54},{64,57, 84,62},{64,57, 56,72},{64,80, 70,76},
+  {26,54, 11,54},{36,57, 16,62},{36,57, 44,72},{36,80, 30,76},
+  // --- teeth grid (top + bottom rails, vertical dividers) ---
+  {36,80, 64,80},{36,88, 64,88},
+  {36,80, 36,88},{40,80, 40,88},{44,80, 44,88},{48,80, 48,88},
+  {52,80, 52,88},{56,80, 56,88},{60,80, 60,88},{64,80, 64,88},
+  // --- lower jaw teeth ---
+  {42,88, 44,93},{50,88, 50,94},{58,88, 56,93},
 };
 static const int SKULL_EDGES = sizeof(SKULL) / sizeof(SKULL[0]);
 
@@ -107,28 +118,30 @@ void menu_boot_screen(uint32_t duration_ms) {
     while ((int32_t)(target - millis()) > 0) yield();   // bounded, non-greedy
   }
 
-  // Legend.
+  // Legend, bottom-anchored so it sits correctly on both 240 and 280 panels.
+  const int by = DISPLAY_H;
   g.setTextDatum(textdatum_t::middle_center);
   g.setFont(&fonts::Font4);
   g.setTextColor(COL_TEXT);
-  g.drawString("@luca3d_designs", DISPLAY_W / 2, 188);
+  g.drawString("@luca3d_designs", DISPLAY_W / 2, by - 60);
 
   // "FPV SYSTEM" inside a chevron bar.
-  g.drawFastHLine(40, 206, DISPLAY_W - 80, COL_ACCENT_DK);
+  g.drawFastHLine(40, by - 44, DISPLAY_W - 80, COL_ACCENT_DK);
   g.setFont(&fonts::Font2);
   g.setTextColor(COL_ACCENT);
-  g.drawString("F P V   S Y S T E M", DISPLAY_W / 2, 210);
+  g.drawString("F P V   S Y S T E M", DISPLAY_W / 2, by - 40);
 
   // Firmware + hardware status.
   g.setTextColor(COL_TEXT_DIM);
   g.setFont(&fonts::Font0);
-  g.setTextDatum(textdatum_t::middle_center);
   char ver[40];
   snprintf(ver, sizeof(ver), "%s  v%s", FW_NAME, FW_VERSION);
-  g.drawString(ver, DISPLAY_W / 2, 224);
-  g.drawString("ST7789 OK   PSRAM checking...", DISPLAY_W / 2, 233);
+  g.drawString(ver, DISPLAY_W / 2, by - 26);
+  g.drawString(FPV_MODE_TURBO ? "TURBO  ST7789 OK" : "QUALITY  ST7789 OK",
+               DISPLAY_W / 2, by - 17);
 
-  // Animated "BOOTING..." dots for the rest of the duration.
+  // Animated "BOOTING..." dots on their own bottom line (its own clear band, so
+  // it never erases the legend above it).
   g.setFont(&fonts::Font2);
   int dots = 0;
   while (millis() - t0 < duration_ms) {
@@ -136,8 +149,8 @@ void menu_boot_screen(uint32_t duration_ms) {
     snprintf(b, sizeof(b), "BOOTING%s", (dots == 0) ? "." : (dots == 1) ? ".." : "...");
     g.setTextColor(COL_MAGENTA);
     g.setTextDatum(textdatum_t::middle_center);
-    g.fillRect(40, 192, DISPLAY_W - 80, 18, COL_BG);   // clear previous dots
-    g.drawString(b, DISPLAY_W / 2, 200);
+    g.fillRect(40, by - 14, DISPLAY_W - 80, 13, COL_BG);   // clear previous dots
+    g.drawString(b, DISPLAY_W / 2, by - 7);
     dots = (dots + 1) % 3;
     uint32_t step = millis();
     while (millis() - step < 350 && millis() - t0 < duration_ms) yield();
@@ -148,15 +161,15 @@ void menu_boot_screen(uint32_t duration_ms) {
 // ===========================================================================
 //  Quick menu / System Info
 // ===========================================================================
-enum class MenuScreen : uint8_t { QUICK, SYSINFO };
+enum class MenuScreen : uint8_t { QUICK, SYSINFO, PERF };
 
 enum {
-  IT_REC = 0, IT_LED, IT_QUALITY, IT_OVERLAY, IT_RECONNECT, IT_SYSINFO, IT_CLOSE,
-  IT_COUNT
+  IT_REC = 0, IT_LED, IT_QUALITY, IT_OVERLAY, IT_RECONNECT, IT_PERF, IT_SYSINFO,
+  IT_CLOSE, IT_COUNT
 };
 static const char* ITEM_LABEL[IT_COUNT] = {
   "Start / Stop REC", "Camera LED", "Quality", "Overlay",
-  "Reconnect Stream", "System Info", "Close Menu",
+  "Reconnect Stream", "Perf / Anti-Lag", "System Info", "Close Menu",
 };
 
 static bool       s_active = false;
@@ -194,6 +207,7 @@ static void activate(int item) {
     case IT_OVERLAY:   g_rx.overlay_mode = (g_rx.overlay_mode + 1) % 3;
                        telemetry_send_arg(CMD_SET_OVERLAY_MODE, g_rx.overlay_mode); break;
     case IT_RECONNECT: video_request_reconnect(); menu_close(); return;
+    case IT_PERF:      s_screen = MenuScreen::PERF; break;
     case IT_SYSINFO:   s_screen = MenuScreen::SYSINFO; break;
     case IT_CLOSE:     menu_close(); return;
   }
@@ -203,7 +217,7 @@ static void activate(int item) {
 bool menu_handle_button(ButtonEvent ev) {
   if (!s_active || ev == ButtonEvent::NONE) return s_active;
 
-  if (s_screen == MenuScreen::SYSINFO) {
+  if (s_screen == MenuScreen::SYSINFO || s_screen == MenuScreen::PERF) {
     // Any press returns to the quick menu.
     s_screen = MenuScreen::QUICK;
     s_dirty = true;
@@ -235,7 +249,7 @@ static void drawQuick() {
   g.fillScreen(COL_BG);
   drawTitle("QUICK MENU");
 
-  const int top = 40, rowH = 25;
+  const int top = 36, rowH = 23;
   g.setFont(&fonts::Font2);
   for (int i = 0; i < IT_COUNT; i++) {
     int y = top + i * rowH;
@@ -302,13 +316,65 @@ static void drawSysInfo() {
   g.drawString("press to go back", DISPLAY_W / 2, DISPLAY_H - 8);
 }
 
+// ---- PERF / anti-lag screen: the honest, real-time latency metrics ----------
+static void drawPerf() {
+  auto& g = display();
+  g.fillScreen(COL_BG);
+  drawTitle("PERF / ANTI-LAG");
+
+  char b[40];
+  int y = 44, dy = 18;
+  // age coloured by how fresh it is (the whole point of the build)
+  g.setFont(&fonts::Font2);
+  uint16_t agecol = (g_rx.frame_age_ms < 120) ? COL_OK
+                  : (g_rx.frame_age_ms < 220) ? COL_WARN : COL_ERR;
+  snprintf(b, sizeof(b), "%lu ms", (unsigned long)g_rx.frame_age_ms);
+  g.setTextDatum(textdatum_t::middle_left);
+  g.setTextColor(COL_TEXT_DIM); g.drawString("Frame age", 14, y);
+  g.setTextDatum(textdatum_t::middle_right);
+  g.setTextColor(g_rx.clock_synced ? agecol : COL_TEXT_DIM);
+  g.drawString(g_rx.clock_synced ? b : "sync...", DISPLAY_W - 14, y); y += dy;
+
+  snprintf(b, sizeof(b), "%.0f/%.0f/%.0f", g_rx.cam_fps, g_rx.fps_rx, g_rx.fps_video);
+  drawSysRow(y, "FPS c/r/d", b);                                          y += dy;
+  snprintf(b, sizeof(b), "%lu ms", (unsigned long)(g_rx.decode_draw_us / 1000));
+  drawSysRow(y, "Decode+draw", b);                                       y += dy;
+  snprintf(b, sizeof(b), "%lu kbps", (unsigned long)g_rx.rx_kbps);
+  drawSysRow(y, "RX rate", b);                                           y += dy;
+  snprintf(b, sizeof(b), "%lu B", (unsigned long)g_rx.jpeg_size);
+  drawSysRow(y, "JPEG size", b);                                         y += dy;
+  snprintf(b, sizeof(b), "%u %%", g_rx.packet_loss);
+  drawSysRow(y, "Packet loss", b);                                       y += dy;
+  snprintf(b, sizeof(b), "%lu/%lu/%lu", (unsigned long)g_rx.dropped_old,
+           (unsigned long)g_rx.dropped_timeout, (unsigned long)g_rx.dropped_stale);
+  drawSysRow(y, "Drop o/t/s", b);                                        y += dy;
+  snprintf(b, sizeof(b), "%lu", (unsigned long)g_rx.jpeg_err);
+  drawSysRow(y, "JPEG errors", b);                                       y += dy;
+  snprintf(b, sizeof(b), "%d dBm", g_rx.rssi);
+  drawSysRow(y, "RSSI", b);                                              y += dy;
+  snprintf(b, sizeof(b), "%lu KB", (unsigned long)(g_rx.free_heap / 1024));
+  drawSysRow(y, "Heap free", b);                                         y += dy;
+  snprintf(b, sizeof(b), "%lu KB", (unsigned long)(g_rx.free_psram / 1024));
+  drawSysRow(y, "PSRAM free", b);
+
+  g.setFont(&fonts::Font0);
+  g.setTextDatum(textdatum_t::middle_center);
+  g.setTextColor(COL_TEXT_DIM);
+  g.drawString(FPV_MODE_TURBO ? "TURBO - press to go back"
+                              : "QUALITY - press to go back", DISPLAY_W / 2, DISPLAY_H - 8);
+}
+
 void menu_draw() {
   if (!s_active) return;
   uint32_t now = millis();
 
   if (s_screen == MenuScreen::SYSINFO) {
-    // refresh live values ~2 Hz
     if (s_dirty || now - s_last_draw > 500) { drawSysInfo(); s_last_draw = now; s_dirty = false; }
+    return;
+  }
+  if (s_screen == MenuScreen::PERF) {
+    // live metrics ~4 Hz
+    if (s_dirty || now - s_last_draw > 250) { drawPerf(); s_last_draw = now; s_dirty = false; }
     return;
   }
   if (s_dirty) { drawQuick(); s_last_draw = now; s_dirty = false; }

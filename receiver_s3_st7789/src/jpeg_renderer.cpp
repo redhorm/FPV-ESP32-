@@ -46,8 +46,12 @@ public:
       c.pin_busy        = -1;
       c.panel_width     = DISPLAY_W;
       c.panel_height    = DISPLAY_H;
+      // 240x280 panels physically sit inside a 240x320 controller GRAM with a
+      // 20px vertical offset; 240x240 uses no offset. Both come from config.h.
+      c.memory_width    = DISPLAY_W;
+      c.memory_height   = PANEL_GRAM_H;
       c.offset_x        = 0;
-      c.offset_y        = 0;
+      c.offset_y        = PANEL_OFFSET_Y;
       c.offset_rotation = 0;
       c.readable        = false;          // 1-wire, no readback needed
       c.invert          = true;           // ST7789 panels need colour inversion
@@ -98,12 +102,14 @@ bool jpeg_draw(const uint8_t* data, uint32_t len) {
 
   // Centre-crop offset derived from the configured source size (config.h).
   // For the default native 240x240 source both offsets are 0 (no crop).
-  int32_t offX = (VIDEO_SRC_W > DISPLAY_W) ? (VIDEO_SRC_W - DISPLAY_W) / 2 : 0;
-  int32_t offY = (VIDEO_SRC_H > DISPLAY_H) ? (VIDEO_SRC_H - DISPLAY_H) / 2 : 0;
+  int32_t offX = (VIDEO_SRC_W > VIDEO_W) ? (VIDEO_SRC_W - VIDEO_W) / 2 : 0;
+  int32_t offY = (VIDEO_SRC_H > VIDEO_H) ? (VIDEO_SRC_H - VIDEO_H) / 2 : 0;
 
+  // The 240x240 video is drawn centred vertically: y = VIDEO_Y0 (0 on a 240x240
+  // panel, 20 on a 240x280 panel, leaving top/bottom HUD bands).
   bool ok = s_lcd.drawJpg(data, len,
-                          /*x*/0, /*y*/0,
-                          /*maxWidth*/DISPLAY_W, /*maxHeight*/DISPLAY_H,
+                          /*x*/0, /*y*/VIDEO_Y0,
+                          /*maxWidth*/VIDEO_W, /*maxHeight*/VIDEO_H,
                           /*offX*/offX, /*offY*/offY);
   if (!ok) {
     LOGV("drawJpg failed (corrupt frame)");

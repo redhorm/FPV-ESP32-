@@ -35,12 +35,6 @@ static bool  s_have_sprites = false;   // false => sprite alloc failed, draw dir
 static uint32_t s_last_render = 0;
 static bool     s_dirty = true;
 
-// latency estimation
-static uint32_t s_min_delta = 0xFFFFFFFF;
-
-// local fps (drawn frames)
-static uint32_t s_last_frame_ms = 0;
-
 // -----------------------------------------------------------------------------
 static void initSprites() {
   bool psram = (ESP.getPsramSize() > 0);
@@ -94,23 +88,9 @@ void overlay_ingest(const FrameHeader* h, uint32_t now_ms) {
   g_rx.pitch         = h->pitch_ddeg / 10.0f;
   g_rx.cam_heap_kb   = h->free_heap_kb;
   g_rx.cam_error     = h->error_flags;
-
-  // latency estimate
-  uint32_t delta = now_ms - h->timestamp_ms;   // includes clock offset
-  if (delta < s_min_delta) s_min_delta = delta;
-  g_rx.latency_ms = (delta >= s_min_delta) ? (delta - s_min_delta) : 0;
-
-  // local drawn-fps (EMA)
-  if (s_last_frame_ms) {
-    uint32_t dt = now_ms - s_last_frame_ms;
-    if (dt > 0) {
-      float inst = 1000.0f / dt;
-      g_rx.fps_video = (g_rx.fps_video == 0) ? inst
-                       : g_rx.fps_video * 0.9f + inst * 0.1f;
-    }
-  }
-  s_last_frame_ms = now_ms;
-  g_rx.frames_drawn++;
+  // NOTE: frame_age_ms, drawn-FPS and frames_drawn are computed in main.cpp,
+  // right after the draw, using the TSYNC clock offset (honest measurement).
+  (void)now_ms;
 }
 
 // -----------------------------------------------------------------------------
@@ -135,10 +115,10 @@ static void renderTop() {
   snprintf(rb, sizeof(rb), "%d", g_rx.rssi);
   s_top.drawString(rb, 28, TOPBAR_H / 2);
 
-  // --- center: FPS + latency ---
+  // --- center: drawn FPS + honest frame age ---
   char mid[24];
-  snprintf(mid, sizeof(mid), "%.0f FPS  %lums",
-           g_rx.fps_video, (unsigned long)g_rx.latency_ms);
+  snprintf(mid, sizeof(mid), "%.0ff %lums",
+           g_rx.fps_video, (unsigned long)g_rx.frame_age_ms);
   s_top.setTextColor(COL_ACCENT);
   s_top.setTextDatum(textdatum_t::middle_center);
   s_top.drawString(mid, DISPLAY_W / 2, TOPBAR_H / 2);
@@ -175,10 +155,11 @@ static void renderBot() {
     s_bot.drawString("NO SD", 6, BOTBAR_H / 2);
   }
 
-  // --- center: dropped frames ---
-  char d[20];
-  snprintf(d, sizeof(d), "DROP %lu", (unsigned long)g_rx.frames_dropped);
-  s_bot.setTextColor(COL_TEXT_DIM);
+  // --- center: drops + packet loss ---
+  char d[24];
+  snprintf(d, sizeof(d), "D%lu L%u%%",
+           (unsigned long)g_rx.frames_dropped, g_rx.packet_loss);
+  s_bot.setTextColor(g_rx.packet_loss > 15 ? COL_WARN : COL_TEXT_DIM);
   s_bot.setTextDatum(textdatum_t::middle_center);
   s_bot.drawString(d, DISPLAY_W / 2, BOTBAR_H / 2);
 
@@ -239,7 +220,7 @@ void overlay_draw(bool force) {
   if (!s_have_sprites) return;   // graceful: no overlay rather than a crash
 
   uint32_t now = millis();
-  bool time_to_render = (now - s_last_render) >= (1000 / OVERLAY_REFRESH_HZ);
+  bool time_to_render = (now - s_last_render) >= OVERLAY_REFRESH_MS;
   // REC blink needs sub-refresh updates of the top bar.
   bool rec_blink = g_rx.cam_recording;
 

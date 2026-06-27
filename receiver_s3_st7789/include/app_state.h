@@ -33,10 +33,26 @@ struct RxStatus {
   // --- link / video stats (measured locally) ---
   bool     wifi_connected = false;
   int8_t   rssi           = 0;       // dBm
+  float    fps_rx         = 0.0f;    // complete JPEG frames reassembled / s
   float    fps_video      = 0.0f;    // frames actually drawn / s
-  uint32_t latency_ms     = 0;       // estimated (now - frame timestamp - offset)
+  uint32_t latency_ms     = 0;       // alias of frame_age_ms (kept for overlay)
   uint32_t frames_drawn   = 0;
-  uint32_t frames_dropped = 0;       // newer frame arrived before old drawn / decode fail
+  uint32_t frames_dropped = 0;       // total drops (old + timeout + decode)
+
+  // --- ANTI-LAG performance metrics (PERF screen) ---
+  uint32_t frame_age_ms   = 0;       // capture -> end of draw, via TSYNC offset
+  uint32_t rx_kbps        = 0;       // video bytes/s over the link (kbit/s)
+  uint32_t jpeg_size      = 0;       // bytes of the last complete JPEG
+  uint8_t  packet_loss    = 0;       // % chunks missing over the last window
+  uint32_t dropped_old    = 0;       // partials abandoned: a newer frame arrived
+  uint32_t dropped_timeout= 0;       // partials abandoned: assembly timed out
+  uint32_t dropped_stale  = 0;       // older complete frame superseded same loop
+  uint32_t jpeg_err       = 0;       // JPEG decode failures
+  uint32_t decode_draw_us = 0;       // last decode+blit duration (microseconds)
+  int32_t  clock_offset   = 0;       // camera_ms - local_ms (TSYNC estimate)
+  bool     clock_synced   = false;
+  uint32_t free_heap      = 0;       // receiver internal heap (bytes)
+  uint32_t free_psram     = 0;       // receiver PSRAM free (bytes)
 
   // --- telemetry mirrored from the camera (frame header + UDP status) ---
   bool     cam_recording  = false;

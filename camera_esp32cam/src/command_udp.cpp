@@ -63,6 +63,13 @@ void udp_loop() {
     if      (strcmp(s_buf, CMD_PING) == 0) {
       sendReply(rip, rport, PING_REPLY "\n");
     }
+    else if (strcmp(s_buf, CMD_TSYNC) == 0) {
+      // Clock-sync probe: reply immediately with our millis() so the receiver
+      // can estimate the camera<->receiver clock offset (lowest-RTT sample).
+      char ts[24];
+      snprintf(ts, sizeof(ts), TSYNC_REPLY_PREFIX "%lu\n", (unsigned long)millis());
+      sendReply(rip, rport, ts);
+    }
     else if (strcmp(s_buf, CMD_REQUEST_STATUS) == 0) {
       sendStatus(rip, rport);
     }

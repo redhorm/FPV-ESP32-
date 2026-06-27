@@ -32,6 +32,9 @@ struct AppStatus {
   uint8_t  overlay_mode   = 0;     // forwarded to receiver if it asks
   float    fps_camera     = 0.0f;
   uint32_t frame_id       = 0;
+  uint32_t frame_capture_ms = 0;   // millis() captured this frame (TSYNC clock)
+  uint32_t last_jpeg_len  = 0;     // size of the most recent frame (bytes)
+  uint32_t rec_dropped    = 0;     // recording frames dropped (SD writer busy)
 
   float    roll           = 0.0f;  // degrees (0 when no MPU)
   float    pitch          = 0.0f;  // degrees
