@@ -20,6 +20,7 @@
 #include "telemetry_client.h"
 #include "ui_overlay.h"
 #include "protocol.h"
+#include "boot_image.h"   // embedded 240x240 boot artwork (auto-generated)
 #include <Arduino.h>
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,19 @@ static void drawHudChrome() {
 void menu_boot_screen(uint32_t duration_ms) {
   auto& g = display();
   g.fillScreen(COL_BG);
+
+  // Prefer the REAL embedded boot artwork (it already contains the
+  // @luca3d_designs / FPV SYSTEM / BOOTING legend). It is drawn 1:1 as a
+  // 240x240 image, centred vertically (VIDEO_Y0). If the JPEG can't be decoded
+  // for any reason we fall back to the procedural vector skull below.
+  if (g.drawJpg(boot_image_jpg, boot_image_jpg_len,
+                0, VIDEO_Y0, DISPLAY_W, VIDEO_H)) {
+    uint32_t t0 = millis();
+    while (millis() - t0 < duration_ms) yield();   // hold the splash (non-blocking)
+    return;
+  }
+
+  // ---------------- vector fallback ----------------
   drawHudChrome();
 
   // Reveal skull edges progressively over ~60% of the duration.

@@ -79,6 +79,21 @@ Open the Quick Menu (short tap in live view) → **Perf / Anti-Lag**:
 The live overlay top bar also shows drawn-FPS + frame age; the bottom bar shows
 drops + loss %.
 
+## 5b. Boot splash (real artwork)
+
+The actual @luca3d_designs skull is embedded and shown at boot: the master
+`assets/boot_skull_src.jpg` (1024×1024, untouched) is downscaled to a 240×240
+baseline JPEG and compiled into the receiver as
+`receiver_s3_st7789/include/boot_image.h`. It is drawn 1:1, centred vertically
+(so it sits in the video area on both panels). If the JPEG ever fails to decode,
+the firmware falls back to the procedural vector skull automatically.
+
+Regenerate after changing the artwork:
+
+```sh
+python3 tools/make_boot_image.py   # needs Pillow: pip install Pillow
+```
+
 ## 6. Build
 
 ```sh
