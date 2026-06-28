@@ -1,0 +1,5 @@
+profiles:
+  default:
+    fqbn: esp32:esp32:esp32cam:PartitionScheme=huge_app,DebugLevel=none,UploadSpeed=115200
+    platforms:
+      - platform: esp32:esp32

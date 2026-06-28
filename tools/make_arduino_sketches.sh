@@ -38,6 +38,13 @@ cat > "$CAM/RC_FPV_Camera.ino" <<'INO'
 //  Edit anti-lag options (TURBO/QUALITY etc.) in config.h.
 // =============================================================================
 INO
+cat > "$CAM/sketch.yaml" <<'YAML'
+profiles:
+  default:
+    fqbn: esp32:esp32:esp32cam:PartitionScheme=huge_app,DebugLevel=none,UploadSpeed=115200
+    platforms:
+      - platform: esp32:esp32
+YAML
 
 # ---- Receiver (two display variants) ----------------------------------------
 make_receiver() { # <foldername> <panel280: 0|1>
@@ -65,6 +72,15 @@ make_receiver() { # <foldername> <panel280: 0|1>
 //  NOTE: keep DISPLAY_PANEL_280 and FPV_MODE_TURBO matching the camera profile.
 // =============================================================================
 INO
+  cat > "$DST/sketch.yaml" <<'YAML'
+profiles:
+  default:
+    fqbn: esp32:esp32:esp32s3:USBMode=hwcdc,CDCOnBoot=cdc,PSRAM=opi,DebugLevel=none
+    platforms:
+      - platform: esp32:esp32
+    libraries:
+      - name: LovyanGFX
+YAML
 }
 make_receiver "RC_FPV_Receiver_240x240" 0
 make_receiver "RC_FPV_Receiver_240x280" 1

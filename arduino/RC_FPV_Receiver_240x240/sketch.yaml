@@ -1,0 +1,7 @@
+profiles:
+  default:
+    fqbn: esp32:esp32:esp32s3:USBMode=hwcdc,CDCOnBoot=cdc,PSRAM=opi,DebugLevel=none
+    platforms:
+      - platform: esp32:esp32
+    libraries:
+      - name: LovyanGFX
