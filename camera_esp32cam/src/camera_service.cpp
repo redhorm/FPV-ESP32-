@@ -48,6 +48,16 @@ bool camera_init() {
   cfg.frame_size   = CAM_FRAMESIZE;
   cfg.jpeg_quality = CAM_JPEG_QUALITY;
 
+#if defined(FPV_BOARD_ESP32S3_CAM)
+  // The N16R8 environment explicitly requires OPI PSRAM; fail visibly rather
+  // than running an incompatible fallback with unexpected frame dimensions.
+  if (!psramFound()) {
+    LOGE("S3 N16R8: OPI PSRAM not detected; check flash/PSRAM variant");
+    g_status.error_flags |= FPV_ERR_CAMERA;
+    return false;
+  }
+#endif
+
   // PSRAM is required for double buffering. "grab latest" + 2 buffers is the
   // low-latency sweet spot: the sensor keeps filling the spare buffer while we
   // transmit, and we always dequeue the freshest frame.
@@ -74,6 +84,12 @@ bool camera_init() {
   // Sensible defaults for an FPV cab/crawler view.
   sensor_t* s = esp_camera_sensor_get();
   if (s) {
+#if defined(FPV_BOARD_ESP32S3_CAM)
+    LOGI("S3 camera detected: sensor PID=0x%04X, PSRAM=%u KiB, flash=%u KiB",
+         (unsigned)s->id.PID,
+         (unsigned)(ESP.getPsramSize() / 1024),
+         (unsigned)(ESP.getFlashChipSize() / 1024));
+#endif
     s->set_quality(s, CAM_JPEG_QUALITY);
     s->set_brightness(s, 0);
     s->set_contrast(s, 0);
