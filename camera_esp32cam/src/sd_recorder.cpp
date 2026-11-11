@@ -24,6 +24,7 @@
 #include "sd_recorder.h"
 #include "config.h"
 #include "app_state.h"
+#include "camera_pins.h"
 #include <Arduino.h>
 
 #if ENABLE_SD_RECORDING
@@ -87,6 +88,23 @@ static void sdWriterTask(void*) {
 #endif // SD_RECORDING_ALLOWED
 
 bool sd_begin() {
+#if defined(FPV_BOARD_ESP32S3_CAM)
+  // TURBO disables recording entirely: do not probe/mount SD at startup.
+  // This saves startup time and keeps the radio/camera the only hot-path loads.
+  #if !SD_RECORDING_ALLOWED
+    LOGI("S3 TURBO: microSD disabled (switch to QUALITY to record)");
+    g_status.sd_available = false;
+    return false;
+  #else
+    // ESP32-S3 does NOT share AI-Thinker's SDMMC fixed pins.
+    // Using the default S3 SDMMC pins can conflict with OPI PSRAM.
+    if (!SD_MMC.setPins(FPV_SD_CLK_GPIO, FPV_SD_CMD_GPIO, FPV_SD_D0_GPIO)) {
+      LOGE("S3 SD_MMC.setPins failed; streaming without SD");
+      g_status.sd_available = false;
+      return false;
+    }
+  #endif
+#endif
   if (!SD_MMC.begin("/sdcard", SD_ONE_BIT_MODE)) {
     LOGE("microSD mount failed (no card / bad card / wiring). Streaming only.");
     s_mounted = false; g_status.sd_available = false; return false;

@@ -1,5 +1,11 @@
 # RC_FPV_SCALER_PRO
 
+> **New ESP32-S3-CAM N16R8 camera option:** See [S3-CAM upgrade / wiring /
+> PlatformIO / hardware verification](docs/ESP32_S3_CAM_UPGRADE.md).
+> The original ESP32-CAM build and existing ESP32-S3 ST7789 receiver remain
+> available; protocol v2 is unchanged. S3 pin mapping must be verified on device.
+
+
 A premium, low-latency **Wi-Fi FPV system for RC scalers / crawlers**, built as
 two cooperating ESP32 firmwares:
 

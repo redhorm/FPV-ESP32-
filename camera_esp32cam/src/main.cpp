@@ -89,6 +89,14 @@ void loop() {
   }
 
   // --- Video hot path ---
+#if defined(FPV_BOARD_ESP32S3_CAM)
+  // Avoid grabbing/encoding unused frames when nobody is subscribed.
+  // Keep capture running during QUALITY recording even with no video viewer.
+  if (!stream_has_client() && !g_status.recording) {
+    delay(1);
+    return;
+  }
+#endif
   camera_fb_t* fb = camera_grab();   // blocks until a fresh frame is ready
   if (!fb) {
     LOGV("fb_get returned null");

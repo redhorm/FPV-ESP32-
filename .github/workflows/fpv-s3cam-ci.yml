@@ -1,0 +1,41 @@
+name: FPV S3-CAM compatibility
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Static protocol and pinout checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify protocol v2 and board mapping
+        run: python3 tools/check_s3_compat.py
+
+  platformio:
+    name: Build ${{ matrix.env }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: camera_esp32cam
+            env: esp32cam
+          - dir: camera_esp32cam
+            env: esp32s3cam_n16r8
+          - dir: receiver_s3_st7789
+            env: receiver_s3
+          - dir: receiver_s3_st7789
+            env: receiver_s3_280
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install platformio
+      - name: Compile firmware
+        run: python3 -m platformio run -d ${{ matrix.dir }} -e ${{ matrix.env }}

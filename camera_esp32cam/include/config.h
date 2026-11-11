@@ -87,9 +87,16 @@
 // ---------------------------------------------------------------------------
 //  Camera LED (GPIO4)  -  see README "Known issues GPIO4 + microSD"
 // ---------------------------------------------------------------------------
-#define ENABLE_CAMERA_LED   true   // allow LED_TOGGLE to act on GPIO4 at all
-#define CAMERA_LED_GPIO     4
-#define CAMERA_LED_ON_BOOT  false  // MUST stay false (flicker / SD contention)
+// ESP32-S3-CAM camera SCCB SDA is GPIO4: never drive it as a flash LED.
+// The S3 profile intentionally has no mapped camera illuminator.
+#if defined(FPV_BOARD_ESP32S3_CAM)
+  #define ENABLE_CAMERA_LED  false
+  #define CAMERA_LED_GPIO    -1
+#else
+  #define ENABLE_CAMERA_LED  true
+  #define CAMERA_LED_GPIO    4
+#endif
+#define CAMERA_LED_ON_BOOT  false
 
 // ---------------------------------------------------------------------------
 //  microSD recording (ASYNCHRONOUS - never on the video path)
@@ -120,6 +127,10 @@
 #define MPU_I2C_SCL         15     // PROPOSAL - shared with SD CLK in 4-bit mode!
 #define MPU_I2C_FREQ_HZ     400000
 #define MPU_FILTER_ALPHA    0.98f
+
+#if defined(FPV_BOARD_ESP32S3_CAM) && ENABLE_MPU6050
+  #error "S3 GPIO15 is camera XCLK. Remap MPU I2C to free pins before enabling."
+#endif
 
 // ---------------------------------------------------------------------------
 //  Timing / robustness (all non-blocking, millis()-based)
